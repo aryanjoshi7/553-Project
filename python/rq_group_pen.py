@@ -3,6 +3,8 @@ from utils import *
 from workHorse import getA, getLamMaxGroup
 import numpy as np
 
+# class rq_group_pen_params:
+    
 
 def rq_group_pen(
     x,
@@ -152,7 +154,6 @@ def rq_group_pen(
         stop("group penalty factor must be of length g")
 
     if lamb is None:
-        # TODO: Implement these
         lamMax = getLamMaxGroup(
             x,
             y,
