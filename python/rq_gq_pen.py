@@ -38,13 +38,13 @@ def rq_gq_pen(x, y, tau, lam=None, nlambda=100, eps=None, weights=None,        \
     if(is_unsorted_tensor(tau)):
         stop("Quantile values should be entered in ascending order")
     
-    if(length(y)!=nrow(x)):
+    if(y.numel() != x.shape[0]):
         stop("length of y and number of rows in x are not the same")
 
-    if(is.null(weights)==FALSE):
-        if(length(weights)!=length(y)):
+    if(weights is not None):
+        if(weights.numel() != y.numel()):
             stop("number of weights does not match number of responses")
-        if(sum(weights<=0)>0):
+        if(torch.any(weights <= 0)):
             stop("all weights most be positive")
         
     if(is.matrix(y)==TRUE):
