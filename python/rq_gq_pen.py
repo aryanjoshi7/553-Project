@@ -47,13 +47,13 @@ def rq_gq_pen(x, y, tau, lam=None, nlambda=100, eps=None, weights=None,        \
         if(torch.any(weights <= 0)):
             stop("all weights most be positive")
         
-    if(is.matrix(y)==TRUE):
-        y <- as.numeric(y)
+    # if(is.matrix(y)==TRUE):
+    #     y <- as.numeric(y)
     
-    if(min(penalty.factor) < 0 | min(tau.penalty.factor) < 0):
-        stop("Penalty factors must be non-negative.")
+    # if(min(penalty.factor) < 0 | min(tau.penalty.factor) < 0):
+    #     stop("Penalty factors must be non-negative.")
 
-    if(sum(penalty.factor)==0 | sum(tau.penalty.factor)==0):
-        stop("Cannot have zero for all entries of penalty factors. This would be an unpenalized model")
+    # if(sum(penalty.factor)==0 | sum(tau.penalty.factor)==0):
+    #     stop("Cannot have zero for all entries of penalty factors. This would be an unpenalized model")
     
     return
