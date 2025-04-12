@@ -4,38 +4,19 @@ import torch.optim as optim
 # !pip install torch-kde
 from torchkde import KernelDensity
 import matplotlib.pyplot as plt
-# import numpy as np
 
 
 # Generate synthetic data
 torch.manual_seed(42)
 # features vlaues from 1 to 100
-feature1 = torch.linspace(-100, 100, 200).reshape(-1, 1)
+feature1 = torch.linspace(-20, 20, 4).reshape(-1, 1)
+y_train = 10*feature1 + 1 + 0 * torch.randn_like(feature1)
 x_train = torch.cat((feature1, feature1**2, feature1**3), dim=1)
-y_test = 0*feature1
-# 3*torch.sin(feature1)
-
-# (-1)*feature1**3 + 1*feature1**2+ + 6*feature1 -20
-y_train = y_test + .2 * torch.randn_like(feature1)
-plt.plot(feature1, y_test, color="orange",label="true")
-# y_train = 10*feature1 + 1 + 0 * torch.randn_like(feature1)
-
 y_train = y_train.squeeze()
-
 # x_train = feature1
 
 num_features = x_train.shape[1]
-print("num_features", num_features)
 
-# X = torch.tensor([[-1,-10],[-1,-10], [-1,-10], [-1,-10], [-1,-10], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]])
-# unweighted_X = torch.tensor([[-1, -1], [1, 1], [-3, -2], [1, 1], [2, 1], [3, 2]])
-
-# x_train = X[:, 0]
-# y_train = X[:, 1]
-# num_features = 1
-
-# x_train
-# x_train = 2 * feature1 + 1 + 0.5 * torch.randn_like(feature1)  # y = 2x + 1 + noise
 
 
 # Define Ridge Regression Model
@@ -58,8 +39,6 @@ class RidgeRegression(nn.Module):
 def ridge_loss(y_pred, y_true, model, penalty, scad_lambda = 0.3, lambda_ = 0.1, alpha_ =0.1):
     mse_loss = torch.mean((y_pred - y_true) ** 2)
     l2_penalty = penalty(model, alpha_)
-    # l2_penalty = penalty(model, scad_lambda, alpha_)  # L2 regularization on weights
-    # print(type(l2_penalty))
     return mse_loss + lambda_ * l2_penalty
 
 def ridge_loss_ratio(y_pred, y_true, model, densities, alpha=0.1):
@@ -75,9 +54,8 @@ def splam_penalty(model, alpha):
     
 
 def l2_penalty(model, alpha):
-    return (model.w ** 2).sum()  # L2 regularization on weights
+    return (model.w ** 2).sum()
 def l2_weighted_penalty(model, alpha):
-    # np.tensordot(alpha, )
     return alpha @ (model.w ** 2)
 
 
@@ -86,67 +64,24 @@ def quantile_loss(y_pred, y_true, tau=0.5):
     return torch.mean(torch.maximum(tau * error, (tau - 1) * error))
 
 
-def huber_loss(y_pred, y_true, delta, model, alpha):
-    error = y_true - y_pred
-    is_small_error = torch.abs(error) <= delta
-    squared_loss = 0.5 * error**2
-    linear_loss = delta * (torch.abs(error) - 0.5 * delta)
-    penalty = l2_weighted_penalty(model, alpha)
-    # print(penalty, torch.mean(torch.where(is_small_error, squared_loss, linear_loss)))
-    return torch.mean(torch.where(is_small_error, squared_loss, linear_loss)) + (penalty)
-
-def scad_penalty(beta_hat, lambda_val, a_val):
-    beta_hat = beta_hat.w.detach().numpy()
-    is_linear = (np.abs(beta_hat) <= lambda_val)
-    is_quadratic = np.logical_and(lambda_val < np.abs(beta_hat), np.abs(beta_hat) <= a_val * lambda_val)
-    is_constant = (a_val * lambda_val) < np.abs(beta_hat)
-    
-    linear_part = lambda_val * np.abs(beta_hat) * is_linear
-    quadratic_part = (2 * a_val * lambda_val * np.abs(beta_hat) - beta_hat**2 - lambda_val**2) / (2 * (a_val - 1)) * is_quadratic
-    constant_part = (lambda_val**2 * (a_val + 1)) / 2 * is_constant
-    # print(linear_part + quadratic_part + constant_part)
-    return sum(linear_part + quadratic_part + constant_part)
-
-
-
-from sklearn.neighbors import KernelDensity as sk_kd
-import numpy as np
-
-def get_densities(x_train):
-    # X = np.array([[-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]])
-    x_train = x_train.reshape(-1, 1)
-    # print("reshaped", x_train)
-    kde = sk_kd(kernel='gaussian', bandwidth=0.2).fit(x_train)
-    kde_vals = kde.score_samples(x_train)
-    # print("kde_vals", kde_vals)
-    
-    exp_vals = np.exp(kde_vals)
-    kde_sum = np.sum(np.exp(kde_vals))
-    normalized =  exp_vals/kde_sum
-    return normalized
 
 
 
 # Initialize model and optimizer
-
+model = RidgeRegression()
+optimizer = optim.Adam(model.parameters(), lr=0.001)
 densities = get_densities(x_train)
 # Training loop
 def fit(quantile=.1, huber_delta = .01):
-    model = RidgeRegression()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
-    epochs = 50000
+    epochs = 20000
     for epoch in range(epochs):
         optimizer.zero_grad()
-        # y_pred = model(x_train)
-        y_pred = x_train@model.w + model.b
-
+        y_pred = model(x_train)
         # loss = huber_loss(y_pred, y_train, huber_delta, model, torch.tensor([.01, .1, 100]))1, 100]))
         # loss = ridge_loss(y_pred, y_train, model, scad_penalty, scad_lambda = 3 , lambda_ = 3, alpha_ = 0.3)
         # loss = ridge_loss(y_pred, y_train, model, scad_penalty, scad_lambda = 3 , lambda_ = 3, alpha_ = 0.3)
         # loss = ridge_loss(y_pred, y_train, model, l2_penalty, scad_lambda = 3 , lambda_ = 1, alpha_ = 0.1)
-        # loss = quantile_loss(y_pred, y_train, quantile)
         loss = torch.mean((y_pred - y_train)**2)
-        torch.mean((y_pred - y_train)**2)
 
         # loss = ridge_loss(y_pred, y_train, model, l2_penalty, scad_lambda = 3 , lambda_ = 2, alpha_ = 0.05)
 
@@ -154,7 +89,7 @@ def fit(quantile=.1, huber_delta = .01):
         # weighted_loss = (loss).mean()
         # weighted_loss
         # ward()
-
+        loss.requires_grad = True
         loss.backward()
         optimizer.step()
         
@@ -165,15 +100,19 @@ def fit(quantile=.1, huber_delta = .01):
     print(f"Learned parameters: w = {str(model.w)}, b = {model.b.item()}")
     return ridge_loss(y_pred, y_train, model, splam_penalty, scad_lambda = 3 , lambda_ = 6, alpha_ = 0.05), model
 
-error, model_90 = fit(quantile = .9)
-error, model_10 = fit(quantile = .1)
-error, model_50 = fit(quantile = .5)
-
+error, model = fit()
 print(error.item())
-print(model_90.w)
-print(model_50.w)
-print(model_10.w)
-# print(preds)
+model.w.requires_grad = False
+weights = model.w
+b = model.b
+print(b.item())
+print(x_train[0])
+print(x_train[0][0] * weights[0], x_train[0][1] * weights[1], x_train[0][2] * weights[2])
+preds = []
+for i in range(len(x_train)):
+    pred = x_train[i][0] * weights[0] + x_train[i][1] * weights[1] + x_train[i][2] * weights[2]
+    preds.append(pred)
+print(preds)
   # 100 points from -10 to 10
 # feature1 = torch.linspace(-1, 1, 5).reshape(-1, 1)
 # x_pltensor.detach().cpu().numpy()
@@ -181,30 +120,18 @@ print(model_10.w)
 # x_line = torch.cat((x, x**2, x**3), dim=1)
 # # x_line = torch.cat((x.unsqueeze(1), (x**2).unsqueeze(1), (x**3).unsqueeze(1)), dim=1)
 # y = model.w.detach() * x_line + model.b.item()
-
-plt.scatter(feature1, y_train)
 x = feature1
-def plot_model(model, color):
-    y_pred = x_train@model.w + model.b
-    y = y_pred.detach().numpy()
-    plt.plot(feature1, y , label="preds", color=color)
-
-# y_pred_90 = x_train@model_90.w + model_90.b
-# y_pred_10 = x_train@model_10.w + model_10.b
-# y_pred_50 = x_train@model_50.w + model_50.b
-# y = x_train@model.w + model.b
-
-plot_model(model_90, "r")
-plot_model(model_50, "b")
-plot_model(model_10, "g")
-
-
-
+y = preds
+plt.plot(x, y, label="Graph")
+print("densities", densities)
 plt.xlabel('x')
 plt.ylabel('y')
+plt.title('Graph of y = mx + b')
+plt.axhline(0, color='gray', linewidth=0.5)
+plt.axvline(0, color='gray', linewidth=0.5)
 plt.legend()
 plt.grid(True)
-# plt.plot(y, label="pred")
+plt.scatter(feature1, y_train)
 plt.show()
 
 
