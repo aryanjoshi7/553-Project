@@ -103,8 +103,8 @@ import matplotlib.pyplot as plt
 torch.manual_seed(42)
 n = 100
 x = torch.linspace(-20, 20, n).unsqueeze(1)
-y_true = 10*x
-y = y_true #+ torch.randn_like(x) * 2  # add noise
+y_true = x
+y = y_true + torch.randn_like(x) * 0  # add noise
 y = y.squeeze()  # shape: (n,)
 
 # Step 2: Polynomial feature expansion
@@ -119,7 +119,7 @@ b = torch.zeros(1, requires_grad=True)
 
 # Step 4: Set up Adam optimizer
 optimizer = torch.optim.Adam([w, b], lr=0.001)
-lambda_reg = 1.0
+lambda_reg = 5
 epochs = 30000
 
 # Step 5: Training loop
@@ -131,11 +131,13 @@ for epoch in range(epochs):
 
     # Loss = MSE + Ridge penalty
     mse_loss = torch.mean((y_pred - y)**2)
-    ridge_penalty = lambda_reg * torch.sum(w**2)
+    ridge_penalty = lambda_reg * torch.sum(w**2) * 0
     loss = mse_loss + ridge_penalty
 
     # Backward pass and optimization
     loss.backward()
+    # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+
     optimizer.step()
 
     # Progress print
