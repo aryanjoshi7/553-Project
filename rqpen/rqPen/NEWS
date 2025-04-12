@@ -1,0 +1,188 @@
+rqPen 4.1.3 (Release date: 2025-02-12)
+=============
+* Fixed issue where nlambda was not working correctly with rq.pen.cv 
+
+rqPen 4.1.2 (Release date: 2024-10-30)
+=============
+* Added some error check to make sure that each predictor is not a constant. 
+* Added warnings for crossing quantiles in predictions
+* Added an option to sort predictions to ensure that quantiles do not cross and added warnings about crossing quantiles
+* Removed mentions to QICD algoirthm, which has not been implemented since 3.2.2.
+
+rqPen 4.1.1 (Release date: 2024-05-31)
+=============
+* Fixed issue with print.rq.pen.seq() and print.rq.pen.seq.cv()
+
+rqPen 4.1 (Release date: 2024-04-22)
+=============
+* Fixed a bug where rq.group.pen() was not working with group SCAD and norm=2.
+* Updated rq.gq.pen.cv() to accomodate notes.
+* Updated rq.gq.pen.cv(), rq.group.pen.cv(), and rq.pen.cv() help files to include use of weights in cross-validation. 
+* Cleaned up some minor issues in examples, were code ran fine but presentation was poor. 
+* Added some new error checking to functions.
+* Stopped exporting print() functions
+* Minor changes to plot.rq.pen.seq.cv() output, changing pch=20 for all cases
+
+rqPen 4.0  (Release date: 2024-04-18)
+=============
+* Added rq.gq.pen() and rq.gq.pen.cv() for a group lasso penalty across the quantiles that gurantees that when estimating multiple quantiles the same variables are selected across all quantiles. 
+* Removed QICD algorithm. Maintaing the C and Fortran code used in the QICD approaches along with the new C++ code is cumbersome.  In addition, the Huber approaches tend to be noticeably faster and provide similar solutions. 
+
+rqPen 3.2.2 (Release date: 2024-03-13)
+=============
+* Fixed issue where QICD algorithm was not working when called from rq.pen(). 
+
+rqPen 3.2.1 (Release date: 2023-08-24)
+=============
+* Number of folds does not need to be specified when users specify their own fold id. 
+* Attempted to make changes to satisfy requests by CRAN team but do not effect how the package is used. 
+
+rqPen 3.2 (Release date: 2023-07-14)
+=============
+* Updated predict functions so they are all using newx. Some were using newdata. 
+* Improved print.rq.pen.seq() output to provide number of nonzero coefficients by lambda for multiple models. 
+* Updated rq.group.pen() to include weights for the quantile loss function
+* Fixed bug in rq.group.pen.cv() and rq.pen.cv() where prediction was done on training data instead of testing data
+* Changed name of some internal functions that were using R defaults in the incorrect way. For instance, predict.errors is now predErrors.
+* Fixed function predErrors to properly return values. 
+
+
+rqPen 3.1.3 (Release date: 2023-04-11)
+=============
+* A "fix" had been made for qbic() that was not needed and in 3.1.3 was reverted back to the correct function. 
+
+rqPen 3.1.2 (Release date: 2023-03-28)
+=============
+* Moved some functions to internal that are only relevant to functions that are no longer exported. 
+* Changed default for group penalty factors to be the square root of the group size. 
+
+rqPen 3.1.1 (Release date: 2023-03-03)
+=============
+* Fixed issue where predict was not working for a single observation. 
+* Set logLambda=TRUE as default for plot.rq.pen.seq.cv()
+* Fixed issue where SCAD and MCP penalties could fail for large values of lambda, even when n>p+1. New solution is to try quantreg:::rq(y~x,tau=tau) and if that fails then rq.group.pen() or rq.pen() stops early. 
+* Updated bytau.plot() code to allow users to specify specific variables they want to plot.
+* Updated rq.pen.cv.coefficients() to include names of variables as rownames.
+* Older functions mentioned in 3.1 are now really no longer exported. They were accidentally exported due to misuse of roxygen2.  
+* Corrected errors in plot.rq.pen.seq.cv() and attempted to make plots look nicer. 
+
+rqPen 3.1 (Release date: 2023-02-20)
+=============
+* fixed issues where rq.group.pen did not work with a single value of lambda
+* Older functions that were deprecated in 3.0 are no longer exported. Big changes are rq.pen() should be used instead of rq.lasso.fit() or rq.nc.fit(). Similarly rq.group.pen() should be used instead of rq.group.fit(). Finally rq.pen.cv() and rq.group.pen.cv() should be used instead of cv.rq.pen() and cv.rq.group.pen().
+* Fixed issue where length of lambda sequence could differ by quantile if lambda.discard=TRUE. Now it returns the minimum sequence used across all quantiles. Users not liking possible shortening of interesting lambda sequences should set lambda.discard=FALSE, but that will slow the functions down. 
+* Updated cross-validation results to include one standard error when selecting tuning parameters that optimize across all quantiles. 
+* plot.rq.pen.seq() var parameter now works. 
+
+rqPen 3.0.1 (Release date: 2023-01-31)
+=============
+* Fixed mistake in help file of rq.pen.cv(). Thanks to Jing Lyu for noticing the typo. 
+* Fixed issue where coefficients() function was not working correctly if there was only one value of lambda used. 
+* Fixed issue where if y had class matrix rq.pen() and rq.group.pen() were not working. Solution is to switch y to a numeric vector if it is passed as a matrix. 
+* Added vignette. 
+
+rqPen 3.0 (Release date: 2022-08-09)
+=============
+Changes:
+* Package now has elastic net penalty, adaptive lasso, group adaptive lasso and group lasso.  
+* New function rq.pen() which should be used for any non-group penalty. 
+* New function rq.group.pen() should should be used for any group penalty. Group penalties now have L2 and L1 composite norms. In other words, using L2 norm with group lasso provides the typial group lasso. Previously only had L1 norm implemented and so group lasso was the same as regular lasso. See help(rq.group.pen) for more details. 
+* New functions rq.pen.cv() and rq.group.pen.cv() which provide cross validation for rq.pen() and rq.group.pen() objects, respectively. 
+* Function qic.select() uses information criterion to select best tuning parameters.
+* All functions allow for multiple values of tau and multiple values of "a", the second tuning parameter.
+* New algorithms implement Huber-type approximations to quantile loss, greatly improving computational efficiency.
+* Started deprecating many functions that were the old way to fit models. Examples include rq.lasso.fit(), rq.nc.fit(), rq.group.fit(), cv.rq.pen() and cv.rq.group.pen. Instead recommend using rq.pen(), rq.group.pen(), rq.pen.cv() and rq.group.pen.cv() 
+* Updated code for get_coef_pen() to a fix a bug where it was returning multiple values. Thank you to Jingyi Kenneth Tay for noticing this issue. 
+* Updated cv.rq.pen() code so that it will check to make sure that the y variable is not in matrix form. Thanks to Haixiang Zhang for providing code where y in matrix form caused problems. 
+* An unfortunate consequence of these many chagnes is that weights are no longer allowed in the quantile loss function. However, hrqglas does offer this option and incorporating this into rqPen is on our to-do list. 
+
+rqPen 2.3 (Release date: 2022-03-21)
+=============
+Changes:
+* Removed functions kernel_estimates and kernel_weights in order to remove dependency on regpro.
+
+
+rqPen 2.2.2 (Release date: 2020-04-08)
+=============
+Changes:
+* Adding warning to group lasso approaches that group penalty uses the L1 norm and thus group lasso is the same as regular lasso. Added more text to the rq.group.fit and cv.rq.group.pen help files to make clear. In addition, changed default penalty to SCAD for the group penalty functions.  
+* Updated rq.group.fit so "a" tuning parameter for SCAD and MCP gets passed correctly to the QICD or linear programming functions. Thanks to Eric Dunipace for finding this bug. 
+
+rqPen 2.2.1 (Release date: 2020-01-28)
+=============
+Changes:
+* Fixed bug about how weights were assigned to training and testing sets. Thanks to Zhen Liu for finding the bug.  
+
+rqPen 2.2 (Release date: 2019-12-4)
+==============
+Changes: 
+* Adding scale variable to rq.lasso.fit. Where the default is true. Coefficients are returned on the original scale of the predictors. 
+* Fixed bug due to matrix objects also being inherited from class array starting in R 4.0.0.
+
+rqPen 2.1 (Release date: 2019-05-01)
+==============
+Changes: 
+* Fixed bug in the lp algorithm for group penalties.
+* Switched from using fnb to br algorithm as the default for big data problems.
+* Updated rq.lasso.fit to give an error message if only one predictor is provided. 
+* Updated cross-validation to correctly use weights. Thanks to Benda Xu for finding this bug. 
+* Made changes to improve performance of QICD algorithm.
+* Updated cv.rq.pen to work with QICD algorithm. 
+
+rqPen 2.0 (Release date: 2017-05-16)
+==============
+Changes: 
+* Added function qaSIS, for quantile adaptive screening. 
+* Major changes to fix bugs in rq.group.fit and cv.rq.group.pen
+* Added option (penGroups) to penalize only a subset of groups. 
+* Updated rq.lasso.fit to choose method of "br" or "fn" based on combination of n and p. 
+* Fixed bug so you can now use weights with cv.rq.pen. Thanks to Matt Goldman for finding the bug. 
+
+rqPen 1.5.1 (Release date: 2016-11-03)
+==============
+Changes: 
+* Fixed bug in model_eval function, replaced fits-test_y with test_y-fits. The order matters for the check function, because it is not symmetric. 
+
+rqPen 1.5 (Release date: 2016-10-21)
+==============
+Changes: 
+
+* Updated group penalty to use QICD algorithm 
+
+rqPen 1.4 (Release date: 2016-04-20)
+==============
+Changes: 
+
+* Introduced penVars, which allows users to select a subset of variables to be penalized.
+* QICD algorithm implemented for rq.nc.fit and is default if p > 50. 
+* QICD algorithm has not been implemented for group penalties, yet. 
+
+rqPen 1.3 (Release date: 2016-02-08)
+==============
+Changes:
+
+* Fixed bug that caused cv.rq.pen to be doing k-folds cross validation incorrectly.  
+* QICD approach should be considered in work. Future updates will include a more vetted and faster algorithm.
+
+rqPen 1.2 (Release date: 2015-10-13)
+==============
+Changes:
+
+* Added group penalty function with two implementations. QICD, a coordinate descent approach, and a linear programming approach.
+* New functions for group penalties include: groupQICD, groupQICDMultLambda and nonzero
+* Added coefficient functions for cv.rq.group.pen and cv.rq.pen
+* Added kernel based weight functions kernel_estimates and kernel_weights. These will be for future implementations that use inverse weighting as an approach for handling missing data.
+
+rqPen 1.1 (Release date: 2015-03-15)
+==============
+
+Changes:
+
+* Corrected errors in SCAD and MCP penalties
+* Combined scad_1_deriv and scad_2_deriv into one function scad_deriv
+* swapped order of weights and lambda in functions rq.lasso.fit, rq.nc.fit and cv.rq.pen
+
+
+rqPen 1.0 (Release date: 2014-10-29)
+==============
+* First submission. 

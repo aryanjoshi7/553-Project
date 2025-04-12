@@ -1,0 +1,39 @@
+bytau.plot              Plot of how coefficients change with tau
+bytau.plot.rq.pen.seq   Plot of how coefficients change with tau.
+bytau.plot.rq.pen.seq.cv
+                        Plot of coefficients varying by quantiles for
+                        rq.pen.seq.cv object
+coef.rq.pen.seq         Returns coefficients of a rq.pen.seq object
+coef.rq.pen.seq.cv      Returns coefficients from a rq.pen.seq.cv
+                        object.
+plot.rq.pen.seq         Plot of coefficients of rq.pen.seq object as a
+                        function of lambda
+plot.rq.pen.seq.cv      Plots cross validation results from a
+                        rq.pen.seq.cv object
+predict.qic.select      Predictions from a qic.select object
+predict.rq.pen.seq      Predictions from rq.pen.seq object
+predict.rq.pen.seq.cv   Predictions from rq.pen.seq.cv object
+print.qic.select        Print a qic.select object
+print.rq.pen.seq        Print a rq.pen.seq object
+print.rq.pen.seq.cv     Prints a rq.pen.seq.cv object
+qic.select              Select tuning parameters using IC
+qic.select.rq.pen.seq   Select tuning parameters using IC
+qic.select.rq.pen.seq.cv
+                        Select tuning parameters using IC
+rq.gq.pen               Title Quantile regression estimation and
+                        consistent variable selection across multiple
+                        quantiles
+rq.gq.pen.cv            Title Cross validation for consistent variable
+                        selection across multiple quantiles.
+rq.group.pen            Fits quantile regression models using a group
+                        penalized objective function.
+rq.group.pen.cv         Performs cross validation for a group penalty.
+rq.pen                  Fit a quantile regression model using a
+                        penalized quantile loss function.
+rq.pen.cv               Does k-folds cross validation for rq.pen. If
+                        multiple values of a are specified then does a
+                        grid based search for best value of lambda and
+                        a.
+rqPen                   rqPen: A package for estimating quantile
+                        regression models using penalized objective
+                        functions.
