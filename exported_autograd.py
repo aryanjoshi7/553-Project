@@ -11,12 +11,13 @@ import matplotlib.pyplot as plt
 torch.manual_seed(42)
 # features vlaues from 1 to 100
 feature1 = torch.linspace(-20, 20, 100).reshape(-1, 1)
+
 x_train = torch.cat((feature1, feature1**2, feature1**3), dim=1)
-y_test = 0*feature1
+y_test = 4*feature1
 
 # (-1)*feature1**3 + 1*feature1**2+ + 6*feature1 -20
 y_train = y_test + .5 * torch.randn_like(feature1)
-plt.ylim(-4, 4)
+# plt.ylim(-4, 4)
 plt.plot(feature1, y_test, color="orange",label="true")
 # y_train = 10*feature1 + 1 + 0 * torch.randn_like(feature1)
 
@@ -55,23 +56,24 @@ class RidgeRegression(nn.Module):
         return torch.FloatTensor(preds)
     
 class Parameters:
-  def __init__(self,lambda_=None, scad_alpha=None, scad_lambda=None, splam_alpha=None, tau=None, huber_alpha=None, huber_delta=None):
+  def __init__(self,lambda_=None, scad_alpha=None, scad_lambda=None, splam_alpha=None, quantile_tau=None, huber_alpha=None, huber_delta=None):
         self.lambda_ = lambda_
         
         self.scad_alpha = scad_alpha
         self.scad_lambda = scad_lambda
         self.splam_alpha = splam_alpha
-        self.quantile_tau = tau
+        self.quantile_tau = quantile_tau
         self.huber_alpha = huber_alpha
         self.huber_delta = huber_delta
     
 # Ridge loss function (MSE + L2 penalty)
-def chosen_loss(y_pred, y_true, model, penalty, parameters):
-    mse_loss = torch.mean((y_pred - y_true) ** 2)
+def chosen_loss(y_pred, y_true, model, loss, penalty, parameters):
+    loss_calc = loss(model, y_pred, y_true, parameters)
+    # torch.mean((y_pred - y_true) ** 2)
     l2_penalty = penalty(model, parameters)
     # l2_penalty = penalty(model, scad_lambda, alpha_)  # L2 regularization on weights
     # print(type(l2_penalty))
-    return mse_loss + parameters.lambda_ * l2_penalty
+    return loss_calc + parameters.lambda_ * l2_penalty
 
 def ridge_loss_ratio_covariate_shift(y_pred, y_true, model, densities, alpha=0.1):
     densities = torch.tensor(densities, dtype=y_pred.dtype, device=y_pred.device)
@@ -92,6 +94,8 @@ def l2_weighted_penalty(model, parameters: Parameters):
     # np.tensordot(alpha, )
     return parameters.alpha @ (model.w ** 2)
 
+def mse_loss(model, y_pred, y_true, p: Parameters):
+    return torch.mean((y_pred - y_true) ** 2)
 
 def quantile_loss(model, y_pred, y_true, parameters: Parameters):
     error = y_true - y_pred
@@ -159,8 +163,8 @@ def fit(quantile=.1, huber_delta = .01, _lambda_ = 0):
         # loss = ridge_loss(y_pred, y_train, model, scad_penalty, scad_lambda = 3 , lambda_ = 3, alpha_ = 0.3)
         # loss = ridge_loss(y_pred, y_train, model, l2_penalty, scad_lambda = 3 , lambda_ = 1, alpha_ = 0.1)
         # loss = quantile_loss(y_pred, y_train, quantile)
-        p = Parameters(lambda_=1.8)
-        loss = chosen_loss(y_pred, y_train, model, l2_penalty, p)
+        p = Parameters(lambda_=0, quantile_tau=.5)
+        loss = chosen_loss(y_pred, y_train, model, quantile_loss, l2_penalty, p)
         # loss = torch.mean((y_pred - y_train)**2)
 
         # loss = ridge_loss(y_pred, y_train, model, l2_penalty, scad_lambda = 3 , lambda_ = 2, alpha_ = 0.05)
@@ -213,7 +217,6 @@ def plot_model(model, color):
 plot_model(model_90, "r")
 # plot_model(model_50, "b")
 # plot_model(model_10, "g")
-
 
 
 plt.xlabel('x')
