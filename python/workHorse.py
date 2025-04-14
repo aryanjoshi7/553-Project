@@ -33,9 +33,9 @@ def rq_huber_deriv(r, tau, gamma):
     l_vec = torch.empty_like(r)
     if le_ind.numel() != 0:
         l_vec[le_ind] = (r[le_ind] / gamma + (2 * tau - 1)) / 2
-        l_vec[~le_ind] < -(torch.sign(r[~le_ind]) + (2 * tau - 1)) / 2
+        l_vec[~le_ind] = (torch.sign(r[~le_ind]) + (2 * tau - 1)) / 2
     else:
-        l_vec < -(torch.sign(r) + (2 * tau - 1)) / 2
+        l_vec = (torch.sign(r) + (2 * tau - 1)) / 2
     return l_vec
 
 
@@ -67,7 +67,7 @@ def getLamMaxGroup(
     weights=None,
 ):
     """
-    Finds lambda max for a group penalty.
+    Finds lambda max for group penalty.
     """
     if (
         (x is None)
@@ -81,7 +81,7 @@ def getLamMaxGroup(
     lambda_max = 0
     n = y.numel()
     if scalex:
-        x < -scale(x)
+        x = scale(x)
     if weights is None:
         weights = torch.ones(n)
     i = 0
@@ -90,9 +90,11 @@ def getLamMaxGroup(
         tau = [tau]
     for tau_val in tau:
         pen_factor = group_pen_factor * tau_penalty_factor[i]
-        validSpots = pen_factor != 0
+        validSpots = (pen_factor != 0)
         # TODO Not sure if npenVars is right
-        npenVars = [j for j in range(len(group_index)) if group_index[j] not in validSpots]
+        mask__ = ~torch.isin(group_index, torch.nonzero(pen_factor != 0, as_tuple=False).squeeze())
+        npenVars = torch.nonzero(mask__, as_tuple=False).squeeze()
+        # npenVars = [j for j in range(len(group_index)) if group_index[j] not in validSpots]
 
         if len(npenVars) == 0:
             model = QuantReg(y.numpy(), np.ones((n, 1)))
@@ -107,17 +109,16 @@ def getLamMaxGroup(
         gamma0 = min(gamma_max, max(gamma, torch.quantile(abs(r), gamma_q).float().item()))
 
         grad_k = -neg_gradient(r, weights, tau_val, gamma0, x, apprx="huber")
-        group_index_tensor = torch.tensor(group_index)
         grad_k_norm = {}
         for g in torch.unique(group_index):
-            mask = group_index == g
+            mask = (group_index == g)
             group_grad = grad_k[mask]
             grad_k_norm[int(g.item())] = torch.norm(group_grad, p=norm)
-
-        norm_vals = torch.tensor([grad_k_norm[int(group_index[i])] for i in validSpots])
+        
+        norm_vals = torch.tensor([grad_k_norm[i.item()] for i in torch.unique(group_index)[validSpots].int()])
+        # norm_vals = torch.tensor([grad_k_norm[int(group_index[i])] for i in validSpots])
         pen_vals = pen_factor[validSpots]
         lambda_candidate = torch.max(norm_vals / pen_vals).item()
         lambda_max = max(lambda_max, lambda_candidate)
         i += 1
-
     return lambda_max * 1.05  # no idea where the 1.05 comes from

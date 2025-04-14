@@ -3,20 +3,18 @@ from utils import *
 from workHorse import getA, getLamMaxGroup
 import numpy as np
 
-# class rq_group_pen_params:
-    
 
 def rq_group_pen(
     x,
     y,
-    tau=0.5,
+    tau=torch.tensor([0.5]),
     groups=None,
     penalty="gLASSO",
     lamb=None,
     nlambda=100,
     eps=None,
     alg="huber",
-    a=None,
+    a=torch.tensor([1]),
     norm=2,
     group_pen_factor=None,
     tau_penalty_factor=None,
@@ -27,6 +25,7 @@ def rq_group_pen(
     gamma=None,
     lambda_discard=True,
     weights=None,
+    R=None,
     *args
 ):
     """
@@ -44,7 +43,7 @@ def rq_group_pen(
 
     gamma = tensor_IQR(y) / 10 if (gamma is None) else gamma
 
-    groups = range(1, x.shape[1]) if (groups is None) else groups
+    groups = torch.arange(0, x.shape[1]).int() if (groups is None) else groups
 
     if not is_unique_tensor(tau):
         stop("All entries of tau should be unique")
@@ -65,7 +64,7 @@ def rq_group_pen(
         else:
             group_pen_factor = torch.ones(g)
 
-    if norm != 1 & norm != 2:
+    if norm != 1 and norm != 2:
         stop("norm must be 1 or 2")
 
     if y.numel() != x.shape[0]:
@@ -89,10 +88,10 @@ def rq_group_pen(
     if y.ndim == 2:
         y = y.flatten()
 
-    if group_pen_factor.min() < 0 | tau_penalty_factor.min() < 0:
+    if group_pen_factor.min() < 0 or tau_penalty_factor.min() < 0:
         stop("Penalty factors must be non-negative.")
 
-    if torch.sum(group_pen_factor) == 0 | torch.sum(tau_penalty_factor) == 0:
+    if torch.sum(group_pen_factor) == 0 or torch.sum(tau_penalty_factor) == 0:
         stop(
             "Cannot have zero for all entries of penalty factors. This would be an unpenalized model"
         )
@@ -101,9 +100,10 @@ def rq_group_pen(
     n = dims[0]
     p = dims[1]
     if groups.numel() != p:
+        print(p, groups.numel())
         stop("length of groups is not equal to number of columns in x")
 
-    if (weights is None) & penalty == "gAdLASSO":
+    if (weights is None) and penalty == "gAdLASSO":
         # Warning
         print("WARN: Initial estimate for group adaptive lasso ignores the weights")
 
@@ -128,25 +128,25 @@ def rq_group_pen(
 
     if not torch.is_tensor(x):
         stop("x must be a matrix")
-    if penalty == "gLASSO" & norm == 1:
+    if penalty == "gLASSO" and norm == 1:
         stop(
             "Group Lasso with composite norm of 1 is the same as regular lasso, use norm = 2 if you want group lasso"
         )
-    if norm == 1 & penalty == "gAdLASSO":
+    if norm == 1 and penalty == "gAdLASSO":
         # Warning
         print(
             "Group adapative lasso with 1 norm results in a lasso estimator where lambda weights are the same for each coefficient in a group. However, it does not force groupwise sparsity, there can be zero and non-zero coefficients within a group."
         )
-    if norm == 2 & alg != "huber":
+    if norm == 2 and alg != "huber":
         stop("If setting norm = 2 then algorithm must be huber")
-    if penalty == "gAdLASSO" & alg != "huber":
+    if penalty == "gAdLASSO" and alg != "huber":
         # Warning
         print(
             "huber algorithm used to derive ridge regression initial estimates for adaptive lasso. Second stage of algorithm used lp"
         )
-    if sum(tau <= 0 | tau >= 1) > 0:
+    if torch.any(tau <= 0) or torch.any(tau >= 1):
         stop("tau needs to be between 0 and 1")
-    if torch.any(tau_penalty_factor <= 0) | torch.any(group_pen_factor < 0):
+    if torch.any(tau_penalty_factor <= 0) or torch.any(group_pen_factor < 0):
         stop("group penalty factors must be positive and tau penalty factors must be non-negative")
     if sum(group_pen_factor) == 0:
         stop("Some group penalty factors must be non-zero")
@@ -154,19 +154,34 @@ def rq_group_pen(
         stop("group penalty factor must be of length g")
 
     if lamb is None:
-        lamMax = getLamMaxGroup(
+        lamMax = R.getLamMaxGroup(
             x,
             y,
             groups,
             tau,
             group_pen_factor,
-            penalty=penalty,
-            scalex=scalex,
+            gamma.item(),
+            gamma_max=4,
+            gamma_q=0.1,
+            penalty="gLASSO",
+            scalex=True,
             tau_penalty_factor=tau_penalty_factor,
             norm=norm,
-            gamma=gamma,
             weights=weights,
-        )
+        )[0]
+        # lamMax = getLamMaxGroup(
+        #     x,
+        #     y,
+        #     groups,
+        #     tau,
+        #     group_pen_factor,
+        #     penalty=penalty,
+        #     scalex=scalex,
+        #     tau_penalty_factor=tau_penalty_factor,
+        #     norm=norm,
+        #     gamma=gamma,
+        #     weights=weights,
+        # )
 
         lamb = torch.exp(
             torch.linspace(
@@ -176,4 +191,26 @@ def rq_group_pen(
             )
         )
 
-    return
+    penalty_factor = torch.gather(group_pen_factor, 0, groups.long())
+
+    if penalty == "gLASSO":
+        return_val = R.rq_glasso(
+            x.numpy(),
+            y.numpy(),
+            tau.numpy(),
+            groups.numpy(),
+            lamb.numpy(),
+            group_pen_factor.numpy(),
+            scalex,
+            tau_penalty_factor.numpy(),
+            max_iter,
+            converge_eps,
+            gamma.item(),
+            lambda_discard,
+            weights,
+        )
+    # if(penalty == "gLASSO"){
+    # 	print("gAdLASSO case rq.group.pen")
+    # 	return_val <- rq.glasso(x,y,tau,groups, lambda, group.pen.factor,scalex,tau.penalty.factor,max.iter,converge.eps,gamma,lambda.discard=lambda.discard,weights=weights,...)
+    # }
+    return return_val
