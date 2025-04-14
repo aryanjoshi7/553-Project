@@ -7,6 +7,8 @@ x0<- matrix(rnorm(n*p),n,p)
 x<- cbind(x0, x0^2, x0^3)[,order(rep(1:p,3))]
 y<- -2+x[,1]+0.5*x[,2]-x[,3]-0.5*x[,7]+x[,8]-0.2*x[,9]+rt(n,2)
 group<- rep(1:p, each=3)
+
+
 # rq.print_test()
 # lasso estimation
 # one tau
