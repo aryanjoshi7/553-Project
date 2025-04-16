@@ -5,7 +5,7 @@ from scipy.stats import t
 from workHorse import *
 from rq_group_pen import *
 
-R = R_ops(rqpen_path="~/code/EECS553/553-Project/rqpen")
+R = R_ops(rqpen_path="~/code/EECS553/553-Project/rqpen", recompile=True)
 n = 10
 p = 3
 x0 = np.random.randn(n, p)
@@ -69,11 +69,12 @@ def test_rq_group_pen():
     py_out = rq_group_pen(
         X,
         y,
+        penalty="gSCAD",
         R=R
     )
-    # R_out = R.rq_group_pen(X, y)
+    R_out = R.rq_group_pen(X, y, penalty="gSCAD")
     print(f"Py output: {py_out}")
-    # print(f"R output: {R_out}")
+    print(f"R output: {R_out}")
     
 
 test_rq_group_pen()

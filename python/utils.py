@@ -154,15 +154,22 @@ def rq_pen_modelreturn(coefs, x, y, tau, lambda_, local_penalty_factor, penalty,
 
 
 class R_ops():
-    def __init__(self, rqpen_path="~/code/EECS553/553-Project/rqpen"):
+    def __init__(self, rqpen_path="~/code/EECS553/553-Project/rqpen", recompile=False):
         self.rqpen_path = rqpen_path
         numpy2ri.activate()
-        #add this if you are updating rqPen: install.packages("{self.rqpen_path}", repos=NULL, type="source")
-        ro.r(f"""
-            library(devtools)
-            library(rqPen)
-            library(quantreg)
-        """)
+        if recompile:
+            ro.r(f"""
+                library(devtools)
+                install.packages("{self.rqpen_path}", repos=NULL, type="source")
+                library(rqPen)
+                library(quantreg)
+            """)
+        else:
+            ro.r(f"""
+                library(devtools)
+                library(rqPen)
+                library(quantreg)
+            """)
     
 
     def hrq_glasso(self, x, y, groups, subtau=.5, lambda_=NULL, penf=NULL, scalex=True, gamma=.2, max_iter=200, converge_eps=10**-4, lambda_discard=True, weights=NULL):
@@ -240,13 +247,14 @@ class R_ops():
         return ro.globalenv['rval']
     
     
-    def rq_group_pen(self, x, y):
+    def rq_group_pen(self, x, y, penalty="gLASSO"):
         '''
         Just let everything default for testing, add parameters if you really need to test something
         specific. The inputs are assumed to be torch tensors
         '''
         ro.globalenv['x'] = x.numpy()
         ro.globalenv['y'] = FloatVector(y.numpy())
+        ro.globalenv['penalty'] = penalty
         out = ro.r("""
 
             lam <- rqPen:::rq.group.pen(x, y)
@@ -271,3 +279,60 @@ class R_ops():
             penf = group_pen_factor*tau_penalty_factor[i]
             models[i] = self.hrq_glasso(x, y, groups, subtau, lambda_, penf, scalex, gamma, max_iter, converge_eps, lambda_discard, weights)
             models[i] = rq_pen_modelreturn(models[i]["beta"], x, y, subtau, models[i]["lambda"], np.ones(p), "gLASSO", 1, weights)
+
+
+    def rq_finish_group_pen(
+        self,
+        x,
+        y,
+        tau,
+        groups,
+        penalty,
+        lamb,
+        nlambda,
+        eps,
+        alg,
+        a,
+        norm,
+        group_pen_factor,
+        tau_penalty_factor,
+        scalex,
+        coef_cutoff,
+        max_iter,
+        converge_eps,
+        gamma,
+        lambda_discard,
+        weights,
+        penalty_factor,
+    ):
+        ro.globalenv['x'] = x.numpy()
+        ro.globalenv['y'] = FloatVector(y.numpy())
+        ro.globalenv['group.index'] = FloatVector(groups.numpy() + 1)
+        ro.globalenv['tau'] = tau.numpy()
+        ro.globalenv['group.pen.factor'] = group_pen_factor.numpy()
+        ro.globalenv['gamma'] = gamma
+        ro.globalenv['penalty'] = penalty
+        ro.globalenv['lambda'] = lamb.numpy()
+        ro.globalenv['nlambda'] = nlambda
+        ro.globalenv['eps'] = eps
+        ro.globalenv['alg'] = alg
+        ro.globalenv['a'] = a.item()
+        ro.globalenv['scalex'] = scalex
+        ro.globalenv['coef.cutoff'] = coef_cutoff
+        ro.globalenv['max.iter'] = max_iter
+        ro.globalenv['tau.penalty.factor'] = tau_penalty_factor.numpy()
+        ro.globalenv['norm'] = norm
+        ro.globalenv['converge.eps'] = converge_eps
+        ro.globalenv['lambda.discard'] = lambda_discard
+        ro.globalenv['penalty.factor'] = penalty_factor.numpy()
+        print(weights)
+        ro.globalenv['weights'] = weights.numpy() if weights is not None else NULL
+
+        out = ro.r("""
+
+            lam <- rqPen:::rq.finish.group.pen(x, y, tau, group.index, penalty, lambda, nlambda, eps, alg, a, norm, group.pen.factor, tau.penalty.factor, scalex, coef.cutoff, max.iter, converge.eps, gamma, lambda.discard, weights, penalty.factor)
+            rval <- lam
+            
+            """)
+        
+        return ro.globalenv['rval']

@@ -676,6 +676,7 @@ rq.group.lla <- function(obj,x,y,groups,penalty=c("gAdLASSO","gSCAD","gMCP"),a=N
 				coef_by_group_deriv <- group_derivs(derivf, groups, abs(coefficients(obj$models[[j]])[-1,i]),lampen[,i],a[k],norm=norm)
 				#print(paste("derivs are ", coef_by_group_deriv))
 				if(sum(coef_by_group_deriv)==0){
+				  print("in lla: 679: Converged ?")
 					if(n > p + 1){
 						update_est <- try(coefficients(rq(y~x,weights=weights,tau=obj$tau[j])), silent=TRUE)
 						if(inherits(update_est,"try-error")){

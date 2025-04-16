@@ -193,24 +193,48 @@ def rq_group_pen(
 
     penalty_factor = torch.gather(group_pen_factor, 0, groups.long())
 
-    if penalty == "gLASSO":
-        return_val = R.rq_glasso(
-            x.numpy(),
-            y.numpy(),
-            tau.numpy(),
-            groups.numpy(),
-            lamb.numpy(),
-            group_pen_factor.numpy(),
-            scalex,
-            tau_penalty_factor.numpy(),
-            max_iter,
-            converge_eps,
-            gamma.item(),
-            lambda_discard,
-            weights,
-        )
-    # if(penalty == "gLASSO"){
-    # 	print("gAdLASSO case rq.group.pen")
-    # 	return_val <- rq.glasso(x,y,tau,groups, lambda, group.pen.factor,scalex,tau.penalty.factor,max.iter,converge.eps,gamma,lambda.discard=lambda.discard,weights=weights,...)
-    # }
+    # if penalty == "gLASSO":
+    #     return_val = R.rq_glasso(
+    #         x.numpy(),
+    #         y.numpy(),
+    #         tau.numpy(),
+    #         groups.numpy(),
+    #         lamb.numpy(),
+    #         group_pen_factor.numpy(),
+    #         scalex,
+    #         tau_penalty_factor.numpy(),
+    #         max_iter,
+    #         converge_eps,
+    #         gamma.item(),
+    #         lambda_discard,
+    #         weights,
+    #     )
+
+    return_val = R.rq_finish_group_pen(
+        x,
+        y,
+        tau,
+        groups,
+        penalty,
+        lamb,
+        nlambda,
+        eps,
+        alg,
+        a,
+        norm,
+        group_pen_factor,
+        tau_penalty_factor,
+        scalex,
+        coef_cutoff,
+        max_iter,
+        converge_eps,
+        gamma.item(),
+        lambda_discard,
+        weights,
+        penalty_factor,
+    )
+    # rq.finish.group.pen <- function(x,y, tau=.5,groups=1:ncol(x), penalty=c("gLASSO","gAdLASSO","gSCAD","gMCP"),
+    # 						lambda=NULL,nlambda=100,eps=ifelse(nrow(x)<ncol(x),.05,.01),alg=c("huber","br"),
+    # 						a=NULL, norm=2, group.pen.factor=NULL,tau.penalty.factor=rep(1,length(tau)),
+    # 						scalex=TRUE,coef.cutoff=1e-8,max.iter=5000,converge.eps=1e-4,gamma=IQR(y)/10, lambda.discard=TRUE,weights=NULL, penalty.factor){
     return return_val
