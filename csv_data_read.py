@@ -9,7 +9,7 @@ def read_from_csv(filename, label_name):
 
     labels = torch.tensor(df[label_name].to_numpy(), dtype=torch.float32)
     features = torch.tensor(df.drop(columns=label_name).values, dtype=torch.float32)
-    print(features)
+    # print(features)
 
     print(labels.shape, features.shape)
     return labels,features

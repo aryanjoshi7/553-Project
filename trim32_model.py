@@ -6,7 +6,7 @@ from patsy import dmatrix
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from csv_data_read import read_from_csv, normalize_meat_data, applyPCA
-
+from parameters import Parameters
 # 1. Generate synthetic data
 
 meat = "meatspec.csv"
@@ -21,15 +21,15 @@ n_features = features.shape[1]
 y = labels.reshape(-1, 1)
 
 # 2. Split into train/test sets
-X_train, X_test, y_train, y_test = train_test_split(features, y, test_size=.2, random_state=0)
+X_train, X_test, y_train, y_test = train_test_split(features, y, test_size=.2, random_state=1)
 # X_train, y_train = features, y
 X_train, X_test = applyPCA(X_train, X_test)
-formula = "bs(x, df=6, degree=3, include_intercept=True)"
+formula = "bs(x, df=6, degree=3, include_intercept=True) + x"
 # 3. Create spline basis design matrices (degree-3 B-spline)
 
 X_train_designs = []
-print("xtrain shape", X_train.shape, "features len", len(features))
-print(y_train)
+# print("xtrain shape", X_train.shape, "features len", len(features))
+# print(y_train)
 n_features = 30
 # exit()
 for i in range(n_features):
@@ -78,26 +78,18 @@ class AdditiveModel(nn.Module):
 # print(X_train_design)
 # exit()
 # n_basis = X_train_design.shape[1]
-n_basis = X_train_design.shape[1] // n_features
-model = AdditiveModel(n_features,n_basis)
-
-# 6. Training loop with Adam
-optimizer = optim.Adam(model.parameters(), lr=0.01)
-
-_lambda_ = 0.5
-
 def l2_penalty(model, _lambda_):
     l2 = torch.tensor(0.0, device=model.weights[0].device)  # keep on same device
     for w in model.weights:
         l2 += (w ** 2).sum()
     l2 += (model.bias ** 2).sum()  # optional: remove if you don't want to regularize bias
-    return _lambda_ * l2
+    return l2
 def l1_penalty(model, _lambda_):
     l2 = torch.tensor(0.0, device=model.weights[0].device)  # keep on same device
     for w in model.weights:
         l2 += torch.abs(w).sum()
     l2 += torch.abs(model.bias).sum()  # optional: remove if you don't want to regularize bias
-    return _lambda_ * l2
+    return l2
 
 def scad_penalty(model, lambda_, a=3.7):
     total_penalty = torch.tensor(0.0, device=model.weights[0].device)
@@ -129,34 +121,55 @@ def scad_penalty(model, lambda_, a=3.7):
 
     return total_penalty
 
-# def mse_loss(model, y_pred, y_true):
-#     return torch.mean((y_pred - y_true) ** 2)
-# loss_fn = nn.MSELoss() 
+def mse_loss(y_pred, y_true, parameters: Parameters):
+    return torch.mean((y_pred - y_true) ** 2)
 
-for epoch in range(500):
-    model.train()
-    y_pred = model(X_train_tensor)
-    loss = torch.mean((y_pred - y_train_tensor) ** 2) + .06*l1_penalty(model,_lambda_)
-    print(epoch, loss.item())
+def quantile_loss(y_pred, y_true, parameters: Parameters):
+    error = y_true - y_pred
+    return torch.mean(torch.maximum(parameters.quantile_tau * error, (parameters.quantile_tau - 1) * error))
+    
+def fit(loss_fn, penalty_fn, parameters : Parameters):
+    n_basis = X_train_design.shape[1] // n_features
+    model = AdditiveModel(n_features,n_basis)
 
-    optimizer.zero_grad()
-    loss.backward()
-    # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-    optimizer.step()
-# 7. Plot estimated functions
-# def plot_partial_dependence(w, design_matrix_func, var_values, var_name):
-#     grid = np.linspace(var_values.min(), var_values.max(), n)
+    # 6. Training loop with Adam
+    optimizer = optim.Adam(model.parameters(), lr=0.01)
 
-#     grid_design = dmatrix(design_matrix_func, {"x": grid}, return_type='dataframe')
-#     grid_tensor = torch.tensor(grid_design.values, dtype=torch.float32)
-#     f_est = grid_tensor @ w.detach()
-#     return grid, f_est.numpy()
+    _lambda_ = 0.5
 
 
-y_pred = model(X_test_tensor)
-loss = torch.mean((y_pred - y_test_tensor) ** 2)
-print(loss)
-# print(torch.topk(loss, 20, dim=0))
+    # def mse_loss(model, y_pred, y_true):
+    #     return torch.mean((y_pred - y_true) ** 2)
+    # loss_fn = nn.MSELoss() 
+
+    for epoch in range(500):
+        model.train()
+        y_pred = model(X_train_tensor)
+
+        loss = loss_fn(y_pred, y_train_tensor, parameters) + parameters.lambda_ * penalty_fn(model, parameters)
+        print(epoch, loss.item(), (.02*l1_penalty(model,_lambda_)).item())
+
+        optimizer.zero_grad()
+        loss.backward()
+        # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        optimizer.step()
+    # 7. Plot estimated functions
+    # def plot_partial_dependence(w, design_matrix_func, var_values, var_name):
+    #     grid = np.linspace(var_values.min(), var_values.max(), n)
+
+    #     grid_design = dmatrix(design_matrix_func, {"x": grid}, return_type='dataframe')
+    #     grid_tensor = torch.tensor(grid_design.values, dtype=torch.float32)
+    #     f_est = grid_tensor @ w.detach()
+    #     return grid, f_est.numpy()
+
+
+    y_pred = model(X_test_tensor)
+    loss = torch.mean((y_pred - y_test_tensor) ** 2)
+    print("test loss", loss.item())
+    loss_n = (model(X_train_tensor) - y_train_tensor) ** 2
+
+# print(torch.sort(loss_n, dim=0))
+fit(mse_loss, l1_penalty, parameters=Parameters(quantile_tau=.5, lambda_=.03))
 # for i, w in enumerate(model.weights):
 #     print(f"Weight {i}:")
 #     print(w.data)  # or w.detach().numpy() if you want NumPy arrays
