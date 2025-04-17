@@ -1,3 +1,5 @@
+from sklearn.model_selection import KFold
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -13,42 +15,6 @@ meat = "meatspec.csv"
 
 trim32 = "trim32_without_rownames"
 
-
-labels, features = read_from_csv(meat, "fat")
-labels, features = normalize_meat_data(labels, features)
-n_features = features.shape[1]
-
-y = labels.reshape(-1, 1)
-
-# 2. Split into train/test sets
-X_train, X_test, y_train, y_test = train_test_split(features, y, test_size=.2, random_state=0)
-# X_train, y_train = features, y
-X_train, X_test = applyPCA(X_train, X_test)
-formula = "bs(x, df=6, degree=3, include_intercept=True) + x"
-# 3. Create spline basis design matrices (degree-3 B-spline)
-
-X_train_designs = []
-# print("xtrain shape", X_train.shape, "features len", len(features))
-# print(y_train)
-n_features = 30
-# exit()
-for i in range(n_features):
-    X_train_designs.append(dmatrix(formula, {"x": X_train[:, i]}))
-
-X_train_design = np.hstack(X_train_designs)
-
-X_test_designs = []
-for i in range(n_features):
-    X_test_designs.append(dmatrix(formula, {"x": X_test[:, i]}))
-
-X_test_designs = np.hstack(X_test_designs)
-
-# # 4. Convert to PyTorch tensors
-X_train_tensor = torch.tensor(X_train_design, dtype=torch.float32)
-y_train_tensor = torch.tensor(y_train, dtype=torch.float32)
-
-X_test_tensor = torch.tensor(X_test_designs, dtype=torch.float32)
-y_test_tensor = torch.tensor(y_test, dtype=torch.float32)
 
 # 5. Create simple linear model with two separate sets of weights
 class AdditiveModel(nn.Module):
@@ -165,9 +131,9 @@ def quantile_loss(y_pred, y_true, parameters: Parameters):
 def qb():
     pass
 
-def fit(loss_fn, penalty_fn, parameters : Parameters):
-    n_basis = X_train_design.shape[1] // n_features
-    model = AdditiveModel(n_features,n_basis)
+def fit(X, y, n_features, n_basis, loss_fn, penalty_fn, parameters : Parameters):
+    n_basis = X.shape[1] // n_features
+    model = AdditiveModel(n_features, n_basis)
 
     # 6. Training loop with Adam
     optimizer = optim.Adam(model.parameters(), lr=0.01)
@@ -180,9 +146,9 @@ def fit(loss_fn, penalty_fn, parameters : Parameters):
     loss_penalty = []
     for epoch in range(500):
         model.train()
-        y_pred = model(X_train_tensor)
+        y_pred = model(X)
         penalty = parameters.lambda_ * penalty_fn(model, parameters)
-        loss = loss_fn(y_pred, y_train_tensor, parameters) 
+        loss = loss_fn(y_pred, y, parameters) 
         loss += penalty
         print(epoch, loss.item(), penalty.item())
 
@@ -203,15 +169,15 @@ def fit(loss_fn, penalty_fn, parameters : Parameters):
     #     return grid, f_est.numpy()
 
 
-    y_pred = model(X_test_tensor)
-    mae = mae_loss(y_pred, y_test_tensor, parameters)
-    mse = mse_loss(y_pred, y_test_tensor, parameters)
-    print("test loss", mae.item(), mse.item())
-    plt.plot(loss_penalty) 
-    plt.show()
-
+    # y_pred = model(X_test_tensor)
+    # mae = mae_loss(y_pred, y_test_tensor, parameters)
+    # mse = mse_loss(y_pred, y_test_tensor, parameters)
+    # print("test loss", mae.item(), mse.item())
+    # plt.plot(loss_penalty) 
+    # plt.show()
+    return model
 # print(torch.sort(loss_n, dim=0))
-fit(mse_loss, group_l1_penalty, parameters=Parameters(quantile_tau=.5, lambda_=.03), )
+# fit(mse_loss, group_l1_penalty, parameters=Parameters(quantile_tau=.5, lambda_=.03), )
 # for i, w in enumerate(model.weights):
 #     print(f"Weight {i}:")
 #     print(w.data)  # or w.detach().numpy() if you want NumPy arrays
@@ -242,22 +208,73 @@ fit(mse_loss, group_l1_penalty, parameters=Parameters(quantile_tau=.5, lambda_=.
 # plt.tight_layout()
 # plt.show()
 
+from collections import defaultdict
 
 
+def cross_validate(X_full, y_full, penalty_fn, loss_fn, parameters: Parameters, k=5):
+    
+    kf = KFold(n_splits=k, shuffle=True, random_state=42)
+    mse_losses = []
+    mae_losses = []
+    mcpe_losses = [] # list of losses per quantile, list is length of folds
 
-# tensor([[ 0.3412],
-#         [-0.1026],
-#         [ 3.6516],
-#         [-3.5180],
-#         [ 0.1202],
-#         [ 2.0768],
-#         [-1.6988],
-#         [ 0.0662]], requires_grad=True) Parameter containing:
-# tensor([[ 0.3488],
-#         [-1.4044],
-#         [ 1.6443],
-#         [-0.1891],
-#         [ 0.7715],
-#         [ 0.3520],
-#         [-0.2505],
-#         [ 0.2919]], 
+    for fold, (train_idx, val_idx) in enumerate(kf.split(X_full)):
+        print(f"\n--- Fold {fold+1}/{k} ---")
+        
+        # making the folds
+        X_train_fold, y_train_fold = torch.tensor(X_full[train_idx], dtype=torch.float32), torch.tensor(y_full[train_idx], dtype=torch.float32)
+        X_test_fold, y_test_fold = torch.tensor(X_full[val_idx], dtype=torch.float32), torch.tensor(y_full[val_idx], dtype=torch.float32)
+        # print(X_train_fold)
+        # normalizing before pca
+        normalized_y_train, normalized_X_train = normalize_meat_data(y_train_fold, X_train_fold)
+        normalized_y_test, normalized_X_test = normalize_meat_data(y_test_fold, X_test_fold)
+
+        # PCA and defining the "formula", pca normalizes it again
+        print(normalized_X_train.shape)
+        print(normalized_X_test.shape)
+        
+        X_train, X_test = applyPCA(normalized_X_train, normalized_X_test)
+        n_features = 30
+        
+        # Create spline basis design matrices (degree-3 B-spline)
+        formula = "bs(x, df=6, degree=3, include_intercept=True) + x"
+        X_train_designs = []
+        for i in range(n_features):
+            X_train_designs.append(dmatrix(formula, {"x": X_train[:, i]}))
+
+        X_train_design = np.hstack(X_train_designs)
+
+        X_test_designs = []
+        for i in range(n_features):
+            X_test_designs.append(dmatrix(formula, {"x": X_test[:, i]}))
+
+        X_test_designs = np.hstack(X_test_designs)
+
+        # # 4. Convert to PyTorch tensors
+        X_train_tensor, y_train_tensor = torch.tensor(X_train_design, dtype=torch.float32), torch.tensor(normalized_y_train, dtype=torch.float32)
+        X_test_tensor, y_test_tensor = torch.tensor(X_test_designs, dtype=torch.float32), torch.tensor(normalized_y_test, dtype=torch.float32)
+
+        n_basis = X_train_tensor.shape[1] // n_features
+
+        # fitting the model here
+        model = fit(X_train_tensor, y_train_tensor, n_features, n_basis, loss_fn, penalty_fn, parameters)
+
+        y_pred = model(X_test_tensor)
+        mse_losses.append(mse_loss(y_pred, y_test_tensor, parameters).item())
+        mae_losses.append(mae_loss(y_pred, y_test_tensor, parameters).item())
+        mcpe_losses.append(quantile_loss(y_pred, y_test_tensor, parameters).item())
+
+
+    # avg_val_loss = np.mean(val_losses)
+    
+    print("mse_losses: ", mse_losses)
+    print("mae_losses: ", mae_losses)
+    print("mcpe_losses: ", mcpe_losses)
+    
+    # print(f"\nAverage Validation Loss over {k} folds: {avg_val_loss:.4f}")
+    # return avg_val_loss
+
+
+labels, features = read_from_csv(meat, "fat")
+labels = labels.reshape(-1, 1)
+cross_validate(features, labels, group_l1_penalty, mae_loss, parameters=Parameters(quantile_tau=.5, lambda_=.02))

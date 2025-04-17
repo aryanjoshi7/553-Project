@@ -33,6 +33,7 @@ def normalize_meat_data(features, y):
 
 def applyPCA(X_train, X_test):
     pca = PCA(n_components=30)
+    print("shapes", X_train.shape, X_test.shape)
     X_train_pca = pca.fit_transform(X_train)
     X_test_pca = pca.transform(X_test)
 

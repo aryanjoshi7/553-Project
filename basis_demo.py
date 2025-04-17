@@ -3,7 +3,7 @@ from patsy import dmatrix
 import numpy as np
 
 x = np.linspace(0, 10, 200)
-X_spline = dmatrix("bs(x, df=6, degree=4, include_intercept=True)", {"x": x})
+X_spline = dmatrix("x", {"x": x})
 print(X_spline.shape)
 plt.figure(figsize=(8, 4))
 print(X_spline[:, 1])
