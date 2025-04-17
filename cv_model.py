@@ -100,18 +100,18 @@ def scad_penalty(model, lambda_, a=3.7):
 
     return total_penalty
 
-def group_scad_penalty(model, lambda_, a=3.7):
+def group_scad_penalty(model, parameters: Parameters):
     total_penalty = torch.tensor(0.0, device=model.weights[0].device)
 
     for w in model.weights:  # shape (n_basis, 1)
         r = torch.norm(w)  # scalar: ||β_j||₂
 
-        if r <= lambda_:
-            penalty = lambda_ * r
-        elif r <= a * lambda_:
-            penalty = (-r**2 + 2 * a * lambda_ * r - lambda_**2) / (2 * (a - 1))
+        if r <= parameters.scad_lambda:
+            penalty = parameters.scad_lambda * r
+        elif r <= parameters.scad_alpha * parameters.scad_lambda:
+            penalty = (-r**2 + 2 * parameters.scad_alpha * parameters.scad_lambda * r - parameters.scad_lambda**2) / (2 * (parameters.scad_alpha - 1))
         else:
-            penalty = (a + 1) * lambda_**2 / 2
+            penalty = (parameters.scad_alpha + 1) * parameters.scad_lambda**2 / 2
 
         total_penalty += penalty
 
@@ -128,8 +128,10 @@ def quantile_loss(y_pred, y_true, parameters: Parameters):
     error = y_true - y_pred
     return torch.mean(torch.maximum(parameters.quantile_tau * error, (parameters.quantile_tau - 1) * error))
 # implement qb here
-def qb():
-    pass
+def quantile_bias_loss(y_pred, y_true, parameters: Parameters):
+    tau = parameters.quantile_tau
+    indicators = (y_true <= y_pred).float()
+    return torch.abs(torch.mean(indicators - tau))
 
 def fit(X, y, n_features, n_basis, loss_fn, penalty_fn, parameters : Parameters):
     n_basis = X.shape[1] // n_features
@@ -150,7 +152,7 @@ def fit(X, y, n_features, n_basis, loss_fn, penalty_fn, parameters : Parameters)
         penalty = parameters.lambda_ * penalty_fn(model, parameters)
         loss = loss_fn(y_pred, y, parameters) 
         loss += penalty
-        print(epoch, loss.item(), penalty.item())
+        # print(epoch, loss.item(), penalty.item())
 
         optimizer.zero_grad()
         loss.backward()
@@ -210,14 +212,14 @@ def fit(X, y, n_features, n_basis, loss_fn, penalty_fn, parameters : Parameters)
 
 from collections import defaultdict
 
-
-def cross_validate(X_full, y_full, penalty_fn, loss_fn, parameters: Parameters, k=5):
+mse_losses = []
+mae_losses = []
+mcpe_losses = [] # list of losses per quantile, list is length of folds
+qb_losses = []
+def cross_validate(X_full, y_full, penalty_fn, loss_fn, parameters: Parameters, k=20, random_state=1, formula=""):
     
     kf = KFold(n_splits=k, shuffle=True, random_state=42)
-    mse_losses = []
-    mae_losses = []
-    mcpe_losses = [] # list of losses per quantile, list is length of folds
-
+    
     for fold, (train_idx, val_idx) in enumerate(kf.split(X_full)):
         print(f"\n--- Fold {fold+1}/{k} ---")
         
@@ -237,12 +239,13 @@ def cross_validate(X_full, y_full, penalty_fn, loss_fn, parameters: Parameters, 
         n_features = 30
         
         # Create spline basis design matrices (degree-3 B-spline)
-        formula = "bs(x, df=6, degree=3, include_intercept=True) + x"
+        
         X_train_designs = []
         for i in range(n_features):
             X_train_designs.append(dmatrix(formula, {"x": X_train[:, i]}))
 
         X_train_design = np.hstack(X_train_designs)
+        # X_train_design = np.hstack([X_train, X_train_spline]) 
 
         X_test_designs = []
         for i in range(n_features):
@@ -257,24 +260,61 @@ def cross_validate(X_full, y_full, penalty_fn, loss_fn, parameters: Parameters, 
         n_basis = X_train_tensor.shape[1] // n_features
 
         # fitting the model here
-        model = fit(X_train_tensor, y_train_tensor, n_features, n_basis, loss_fn, penalty_fn, parameters)
+        for quantile in parameters.quantile_tau_list:
+            parameters.quantile_tau = quantile
+            model = fit(X_train_tensor, y_train_tensor, n_features, n_basis, loss_fn, penalty_fn, parameters)
 
-        y_pred = model(X_test_tensor)
-        mse_losses.append(mse_loss(y_pred, y_test_tensor, parameters).item())
-        mae_losses.append(mae_loss(y_pred, y_test_tensor, parameters).item())
-        mcpe_losses.append(quantile_loss(y_pred, y_test_tensor, parameters).item())
-
+            y_pred = model(X_test_tensor)
+            if quantile == .5:
+                mse_losses.append(mse_loss(y_pred, y_test_tensor, parameters).item())
+                mae_losses.append(mae_loss(y_pred, y_test_tensor, parameters).item())
+            mcpe_losses.append(quantile_loss(y_pred, y_test_tensor, parameters).item())
+            qb_losses.append(quantile_bias_loss(y_pred, y_test_tensor, parameters).item())
 
     # avg_val_loss = np.mean(val_losses)
     
-    print("mse_losses: ", mse_losses)
-    print("mae_losses: ", mae_losses)
-    print("mcpe_losses: ", mcpe_losses)
     
+
     # print(f"\nAverage Validation Loss over {k} folds: {avg_val_loss:.4f}")
     # return avg_val_loss
 
 
 labels, features = read_from_csv(meat, "fat")
 labels = labels.reshape(-1, 1)
-cross_validate(features, labels, group_l1_penalty, mae_loss, parameters=Parameters(quantile_tau=.5, lambda_=.02))
+for i in range(1):
+    cross_validate(features, labels, group_scad_penalty, quantile_loss, parameters=Parameters(quantile_tau_list=[.1, .2, .3, .4, .5, .6, .7, .8, .9], lambda_=.015, scad_alpha=3.7, scad_lambda=.4), random_state=i, k=10, formula = "bs(x, df=6, degree=3, include_intercept=True) + x")
+# Avg mse 0.044464402832090855
+# Avg mae 0.16067576706409453
+# Avg mcpe 0.08033788353204727
+
+print("mse_losses: ", mse_losses)
+print("mae_losses: ", mae_losses)
+print("mcpe_losses: ", mcpe_losses)
+print("qb_losses: ", qb_losses)
+print("----------------------------")
+print("Avg mse", sum(mse_losses)/len(mse_losses))
+print("Avg mae", sum(mae_losses)/len(mae_losses))
+print("Avg mcpe", sum(mcpe_losses)/len(mcpe_losses))
+print("Avg qb", sum(qb_losses)/len(qb_losses))
+
+
+# cross_validate(features, labels, group_scad_penalty, quantile_loss, parameters=Parameters(quantile_tau_list=[.1, .2, .3, .4, .5, .6, .7, .8, .9], lambda_=.015, scad_alpha=3.7, scad_lambda=.4), random_state=i, k=10)
+# formula was 6 df 3 degree spline
+# Avg mse 0.17564976327121257
+# Avg mae 0.33496857434511185
+# Avg mcpe 0.15344729411105315
+# Avg qb 0.20405002133920788
+    
+# cross_validate(features, labels, group_scad_penalty, quantile_loss, parameters=Parameters(quantile_tau_list=[.1, .2, .3, .4, .5, .6, .7, .8, .9], lambda_=.015, scad_alpha=3.7, scad_lambda=.4), random_state=i, k=10)
+# formula = x
+# Avg mse 0.07137917531654239
+# Avg mae 0.18428830280900002
+# Avg mcpe 0.0753562943595979
+# Avg qb 0.21135160946804615
+
+
+# cross_validate(features, labels, group_scad_penalty, quantile_loss, parameters=Parameters(quantile_tau_list=[.1, .2, .3, .4, .5, .6, .7, .8, .9], lambda_=.015, scad_alpha=3.7, scad_lambda=.4), random_state=i, k=10, formula = "bs(x, df=6, degree=3, include_intercept=True) + x")
+# Avg mse 0.05675614746287465
+# Avg mae 0.1812668927013874
+# Avg mcpe 0.07875619921833277
+# Avg qb 0.2974458880929483
