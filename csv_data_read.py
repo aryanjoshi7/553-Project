@@ -11,7 +11,7 @@ def read_from_csv(filename, label_name):
     features = torch.tensor(df.drop(columns=label_name).values, dtype=torch.float32)
     # print(features)
 
-    print(labels.shape, features.shape)
+    # print(labels.shape, features.shape)
     return labels,features
     
 # read_from_csv("trim32_without_rownames.csv")
@@ -33,7 +33,7 @@ def normalize_meat_data(features, y):
 
 def applyPCA(X_train, X_test):
     pca = PCA(n_components=30)
-    print("shapes", X_train.shape, X_test.shape)
+    # print("shapes", X_train.shape, X_test.shape)
     X_train_pca = pca.fit_transform(X_train)
     X_test_pca = pca.transform(X_test)
 
