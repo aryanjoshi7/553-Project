@@ -17,7 +17,7 @@ def read_from_csv(filename, label_name):
 # read_from_csv("trim32_without_rownames.csv")
 
 
-def normalize_meat_data(features, y):
+def normalize_data(features, y):
     #would be nice to remove some outliers
     # print(features.shape)
     # test_tensor = torch.tensor([[3,1],[9,2]]).float()

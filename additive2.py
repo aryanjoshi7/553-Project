@@ -12,14 +12,14 @@ x1_np = np.random.uniform(0, 1, size=n)
 x2_np = np.random.uniform(0, 1, size=n)
 
 # True underlying functions
-def g1(x): return np.sin(2 * np.pi * x)
-def g2(x): return (x - 0.5) ** 2
+def g1(x): return x
+def g2(x): return x
 
 y_np = g1(x1_np) + g2(x2_np) + np.random.normal(0, 0.1, size=n)
 
 # Step 2: Create cubic B-spline basis for each feature
-B1 = dmatrix("bs(x1, df=6, degree=3, include_intercept=False)", {"x1": x1_np})
-B2 = dmatrix("bs(x2, df=6, degree=3, include_intercept=False)", {"x2": x2_np})
+B1 = dmatrix("bs(x1, df=6, degree=3, include_intercept=True)", {"x1": x1_np})
+B2 = dmatrix("bs(x2, df=6, degree=3, include_intercept=True)", {"x2": x2_np})
 
 # Convert to PyTorch tensors
 X1 = torch.tensor(np.asarray(B1), dtype=torch.float32)

@@ -34,6 +34,6 @@ def scad_penalty(beta, lambd, a):
 plt_points = np.linspace(-20,20,100)
 plt_y = []
 for point in plt_points:
-    plt_y.append(scad_penalty(point, .4, 3.7))
+    plt_y.append(scad_penalty(point, 1.5, 3.7))
 plt.plot(plt_points,np.array(plt_y))
 plt.show()
