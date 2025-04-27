@@ -36,4 +36,7 @@ plt_y = []
 for point in plt_points:
     plt_y.append(scad_penalty(point, 1.5, 3.7))
 plt.plot(plt_points,np.array(plt_y))
+plt.title("SCAD penalty, lambda = 1.5, a = 3.7")
+plt.xlabel("l1 norm")
+plt.ylabel("penalty")
 plt.show()

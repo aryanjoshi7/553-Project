@@ -7,7 +7,7 @@ import torch.optim as optim
 from patsy import dmatrix
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
-from csv_data_read import read_from_csv, normalize_meat_data, applyPCA
+from csv_data_read import read_from_csv, normalize_data, applyPCA
 from parameters import Parameters
 # 1. Generate synthetic data
 
@@ -254,8 +254,8 @@ def cross_validate(X_full, y_full, penalty_fn, loss_fn, parameters: Parameters, 
 
         # print(X_train_fold)
         # normalizing before pca
-        normalized_y_train, normalized_X_train = normalize_meat_data(y_train_fold, X_train_fold)
-        normalized_y_test, normalized_X_test = normalize_meat_data(y_test_fold, X_test_fold)
+        normalized_y_train, normalized_X_train = normalize_data(y_train_fold, X_train_fold)
+        normalized_y_test, normalized_X_test = normalize_data(y_test_fold, X_test_fold)
 
         # PCA and defining the "formula", pca normalizes it again
         # print(normalized_X_train.shape)
