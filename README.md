@@ -1,0 +1,5 @@
+# Additive Nonlinear Quantile Regression With SPLAM
+
+In contrast to classical linear regression, quantile regression has been known to be more appealing for analyzing high dimensional data due to its ability to model heteroscedasticity and its robustness against outliers. It has also been shown that additive nonlinear models can capture complex relationships while avoiding the curse of dimensionality. Sherwood & Maidman propose applying nonlinear additive models to quantile regression; however, they observe their model struggling to simply represent linear relationships in high dimensional settings. For future extensions on their work, Sherwood & Maidman suggest applying techniques such as those used in Sparse Partially Linear Additive Models (SPLAM) regularization to prevent the model from overfitting linear relationships. The code in this repository contains our implementation of SPLAM penalization to a nonlinear additive model.
+
+Note: Our SPLAM implementation can be found in basic_splam2.py
